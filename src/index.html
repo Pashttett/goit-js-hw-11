@@ -10,8 +10,14 @@
 </head>
 
 <body>
-  <!-- ❗️❗️❗️ Add partials like so for every page -->
-  <include src="./partials/example.html"></include>
+  <form class="search-form" id="search-form">
+    <input type="text" name="searchQuery" autocomplete="off" placeholder="Search images..." />
+    <button type="submit">Search</button>
+  </form>
+  <ul class="gallery search-list-js">
+
+  </ul>
+  <div class="js-guard"></div>
 </body>
 
 </html>
