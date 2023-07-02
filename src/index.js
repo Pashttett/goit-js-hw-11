@@ -2,54 +2,35 @@ import './css/style.css';
 import Notiflix from 'notiflix';
 import SimpleLightbox from 'simplelightbox';
 import "simplelightbox/dist/simple-lightbox.min.css";
-import createMarkup from './script/photo-markup';
-import smoothScroll from './script/scroll';
-
-const axios = require('axios').default;
-
-const API_KEY = `36868675-d04d7da5b1942ea7b304f9f1a`;
-const BASE_URL = `https://pixabay.com/api/`;
+import createMarkup from './js/photo-markup';
+import smoothScroll from './js/scroll';
+import fetchData from './js/axios';
 
 const searchForm = document.querySelector('.search-form');
 const searchList = document.querySelector('.search-list-js');
 const searchInput = document.querySelector('input[name="searchQuery"]');
 const targetElement = document.querySelector('.js-guard');
 
-let itemsPerPage = 40;
+const itemsPerPage = 80;
 let gallerySlider;
 
-let options = {
+const options = {
   root: null,
   rootMargin: '200px',
   threshold: 1.0
 };
 
-async function fetchData(page, perPage) {
-  try {
-    const params = new URLSearchParams({
-      image_types: 'photo',
-      orientation: 'horizontal',
-      safesearch: 'true',
-      per_page: perPage,
-      page,
-    });
-    const searchQuery = searchInput.value.trim();
-    const response = await axios.get(`${BASE_URL}?key=${API_KEY}&q=${searchQuery}&${params}`);
-    return response;
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-let observer = new IntersectionObserver(onLoad, options);
+let observer;
 let currentPage = 1;
+let totalPages = 0;
 
 searchForm.addEventListener('submit', onSubmit);
 
 function onSubmit(event) {
   event.preventDefault();
   currentPage = 1;
-  getImages(1, 40);
+  totalPages = 0;
+  getImages(1, itemsPerPage);
 }
 
 async function getImages(page, perPage) {
@@ -58,20 +39,22 @@ async function getImages(page, perPage) {
   }
 
   try {
-    const response = await fetchData(page, perPage);
+    const response = await fetchData(page, perPage, searchInput.value.trim());
     
-    if (response.data.hits.length === 0) {
+    if (response.hits.length === 0) {
       Notiflix.Notify.failure(`Oooops! No images found for query <i>'${searchInput.value}</i>'`);
       searchList.innerHTML = `<p>Oooops! No images found for query <i>'${searchInput.value}</i>'. Try again!</p>`;
       return;
     }
     
-    Notiflix.Notify.success(`Hooray! We found ${response.data.totalHits} images`);
+    totalPages = Math.ceil(response.totalHits / itemsPerPage);
+    Notiflix.Notify.success(`Hooray! We found ${response.totalHits} images`);
     
-    console.log(response.data);
+    console.log(response);
     
-    searchList.innerHTML = createMarkup(response.data.hits);
+    searchList.innerHTML = createMarkup(response.hits);
     
+    observer = new IntersectionObserver(onLoad, options);
     observer.observe(targetElement);
         
     gallerySlider = new SimpleLightbox('.gallery a', {
@@ -90,18 +73,18 @@ function onLoad(entries, observer) {
     if (entry.isIntersecting) {
       console.log(entries);
       currentPage += 1;
-      fetchData(currentPage, itemsPerPage)
+      if (currentPage > totalPages) {
+        observer.unobserve(targetElement);
+        setTimeout(() => {
+          Notiflix.Notify.info(`We're sorry, but you've reached the end of search results`);
+        }, 2000);
+        return;
+      }
+      fetchData(currentPage, itemsPerPage, searchInput.value.trim())
         .then(response => {
           console.log(response);
-          searchList.insertAdjacentHTML('beforeend', createMarkup(response.data.hits));
+          searchList.insertAdjacentHTML('beforeend', createMarkup(response.hits));
           gallerySlider.refresh();
-          if (currentPage * itemsPerPage >= response.data.totalHits && currentPage !== 2) {
-            setTimeout(() => {
-              Notiflix.Notify.info(`We're sorry, but you've reached the end of search results`);
-            }, 2000);
-            observer.unobserve(targetElement);
-            return;
-          }
           
           observer.observe(targetElement);
           
